@@ -1,5 +1,3 @@
-![Title]("Weather4cast competition")
-
 # [Weather4cast](https://www.weather4cast.org)  - Super-Resolution Rain Movie Prediction under Spatio-Temporal Shifts
 - Predict super-resolution rain movies  in various regions of Europe
 - Transfer learning across space and time under strong shifts
