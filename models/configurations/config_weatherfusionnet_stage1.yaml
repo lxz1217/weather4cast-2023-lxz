@@ -9,7 +9,6 @@ dataset:
   sat_bands: ['IR_016', 'IR_039', 'IR_087', 'IR_097', 'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073']
   regions: [ 'boxi_0015', 'boxi_0034', 'boxi_0076',
              'roxi_0004', 'roxi_0005', 'roxi_0006', 'roxi_0007' ]
-  #regions: ['boxi_0034']
   # or, e.g., ['boxi_0015'] if you want to train your model for one region only
   input_product: REFL-BT 
   output_product: RATE 
@@ -21,7 +20,7 @@ dataset:
   len_seq_in: 4        # number of input slots per training sequence
   len_seq_predict: 32  # output slots; both still hard-coded in places!
   # data_root:  'data/2019'  # stage-1
-  data_root:  '/gruntdata0/xinzhe.lxz/weather4cast/data'
+  data_root:  'data'
   years:  [ '2019','2020' ]  # stage-2
   # years:  [ '2019' ]  # stage-1
   # splits_path: 'data/timestamps_and_splits_2019.csv'  # stage-1
@@ -109,7 +108,7 @@ dataset:
       standardise: True
 
 train:    # model training settings
-  batch_size: 10
+  batch_size: 16
   max_epochs: 20
   n_workers: 8  # 8
   loss: mse
@@ -119,7 +118,6 @@ train:    # model training settings
   lr: 1e-3
   weight_decay: 1e-2 
   init_filter_size: 32
-  #val_logits_threshold: 0
 
 model:    # model definition settings
   gradient_clip_val: 2.0
