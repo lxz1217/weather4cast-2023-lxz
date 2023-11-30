@@ -97,7 +97,6 @@ Each HDF file provides a set of (multi-channel) images:
 
 Both input satellite radiances and output OPERA ground-radar rain rates are given for 252x252 pixel patches but please note that the spatial resolution of the satellite images is about six times lower than the resolution of the ground radar. This means that the 252x252 pixel ground radar patch corresponds to a 42x42 pixel center region in the coarser satellite resolution. The model target region thus is surrounded by a large area providing sufficient context as input for a prediction of future weather. In fact, fast storm clouds from one border of the input data would reach the center target region in about 7-8h.
 
-![Context](/images/opera_satelite_context_explained.png?raw=true "Weather4cast competition")
 
 ## Submission guide
 **The leaderboads are not available yet. They will be open for submissions in the middle of October**
