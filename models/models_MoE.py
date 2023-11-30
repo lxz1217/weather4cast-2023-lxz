@@ -74,7 +74,7 @@ class UNetCropUpscale(BaseLitModule):
         return x
 
 
-class WeatherFusionNet(BaseLitModule):
+class WeatherFusionNet_stage2(BaseLitModule):
     def __init__(self, UNet_params, config):
         super().__init__(UNet_params, config)
         self.phydnet = PhyDNetWrapper("models/configurations/phydnet.yaml", ckpt_path="/gruntdata0/xinzhe.lxz/weather4cast-2023/weights/pretrained/sat-phydnet.ckpt")
@@ -114,7 +114,8 @@ class WeatherFusionNet(BaseLitModule):
             x_i = self.upscale(x_i[:, 0]).unsqueeze(1)
             x_i = self.predRNN(x_i)
             x += x_i
-        #x /= len(Xs)
+
+        x /= len(Xs)
 
         if return_inter:
             return sat2rad_out, phydnet_out, x
@@ -129,4 +130,70 @@ class WeatherFusionNet(BaseLitModule):
         optimizer = torch.optim.AdamW(params, lr=float(self.config["lr"]),
                                       weight_decay=float(self.config["weight_decay"]))
         # optimizer = torch.optim.Adam(self.parameters(), lr=float(self.config["train"]["lr"]))
+        return optimizer
+    
+
+class WeatherFusionNet_stage3(BaseLitModule):
+    def __init__(self, UNet_params, config):
+        super().__init__(UNet_params, config)
+        self.phydnet = PhyDNetWrapper("models/configurations/phydnet.yaml",
+                                      ckpt_path="/data-disk0/xinzhe.lxz/w4cNew2023/weights/pretrained/sat-phydnet.ckpt")
+        self.sat2rad = UNetWrapper(input_channels=11, output_channels=1)
+        self.sat2rad.load_state_dict(
+            torch.load("/data-disk0/xinzhe.lxz/w4cNew2023/weights/pretrained/sat2rad-unet.pt"))
+        self.unet_ptr = UNetWrapper(input_channels=11 * (4 + 10) + 4, output_channels=32)
+        self.unet_ptr.load_state_dict(torch.load("/data-disk0/xinzhe.lxz/w4cNew2023/weights/pretrained/unet.pt"))
+        self.unet = UNetWrapper(input_channels=11 * (4 + 10) + 4, output_channels=32)
+        self.upscale = torch.nn.Upsample(scale_factor=6, mode='bilinear', align_corners=True)
+        self.predRNN = PredRNN(in_channels=1, num_hidden=1, width=252, filter_size=3)
+        self.predRNN2 = PredRNN(in_channels=5, num_hidden=5, width=252, filter_size=3)
+
+        self.sigmoid = torch.nn.Sigmoid()
+        self.MoE = MoE(num_classes=32)
+
+    def forward(self, x, return_inter=False):
+        self.sat2rad.eval()
+        with torch.no_grad():
+            sat2rad_out = self.sat2rad(x.swapaxes(1, 2))[0].reshape(x.shape[0], 4, x.shape[-2], x.shape[-1])
+
+        self.phydnet.eval()
+        with torch.no_grad():
+            phydnet_out = self.phydnet(x.swapaxes(1, 2)).flatten(1, 2)
+
+        x = torch.concat([x.flatten(1, 2), phydnet_out, sat2rad_out], dim=1)
+
+        self.unet_ptr.eval()
+        with torch.no_grad():
+            x_ptr, _ = self.unet_ptr(x)
+            x_ptr = x_ptr[crop_slice()]
+            x_ptr = self.upscale(x_ptr[:, 0]).unsqueeze(1)
+
+        x_ptr_5 = repeat(x_ptr, 'b c t w h -> b (rp c) t w h', rp=5)
+        x_ptr_5 = self.predRNN2(x_ptr_5)
+        x_ptr_s_5 = self.sigmoid(x_ptr_5)
+
+        self.unet.eval()
+        with torch.no_grad():
+            _, f = self.unet(x)
+
+        x = 0.0
+        self.MoE.eval()
+        self.predRNN.eval()
+        with torch.no_grad():
+            Xs = self.MoE(f)
+        for i, x_i in enumerate(Xs):
+            x_tpr_s = x_ptr_s_5[:, i, :, :, :].unsqueeze(1)
+            x_i = x_i[crop_slice()]
+            x_i = self.upscale(x_i[:, 0]).unsqueeze(1)
+            with torch.no_grad():
+                x_i = self.predRNN(x_i)
+            x += x_i * x_tpr_s
+
+        if return_inter:
+            return sat2rad_out, phydnet_out, x
+        return x
+    
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.predRNN2.parameters(), lr=float(self.config["lr"]),
+                                      weight_decay=float(self.config["weight_decay"]))
         return optimizer
