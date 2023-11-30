@@ -106,7 +106,7 @@ dataset:
 
 train:    # model training settings
   batch_size: 8
-  max_epochs: 30
+  max_epochs: 20
   n_workers: 8  # 8
   loss: mse
   pos_weight: 6.114572
