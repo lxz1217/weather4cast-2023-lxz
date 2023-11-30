@@ -77,20 +77,14 @@ class UNetCropUpscale(BaseLitModule):
 class WeatherFusionNet_stage2(BaseLitModule):
     def __init__(self, UNet_params, config):
         super().__init__(UNet_params, config)
-        self.phydnet = PhyDNetWrapper("models/configurations/phydnet.yaml", ckpt_path="/gruntdata0/xinzhe.lxz/weather4cast-2023/weights/pretrained/sat-phydnet.ckpt")
+        self.phydnet = PhyDNetWrapper("models/configurations/phydnet.yaml", ckpt_path="/path/to/your/pretrained/weights/sat-phydnet.ckpt")
         for param in self.phydnet.parameters():
             param.requires_grad = False
         self.sat2rad = UNetWrapper(input_channels=11, output_channels=1)
-        self.sat2rad.load_state_dict(torch.load("/gruntdata0/xinzhe.lxz/weather4cast-2023/weights/pretrained/sat2rad-unet.pt"))
-        for param in self.sat2rad.parameters():
-            param.requires_grad = False
+        self.sat2rad.load_state_dict(torch.load("/path/to/your/pretrained/weights/sat2rad-unet.pt"))
         self.unet = UNetWrapper(input_channels=11 * (4 + 10) + 4, output_channels=32)
-        self.unet.load_state_dict(torch.load("/gruntdata0/xinzhe.lxz/weather4cast-2023/weights/pretrained/unet_pretrained.pt"))
-        for param in self.unet.parameters():
-            param.requires_grad = False
         self.upscale = torch.nn.Upsample(scale_factor=6, mode='bilinear', align_corners=True)
         self.predRNN = PredRNN(in_channels=1, num_hidden=1, width=252, filter_size=3)
-        self.predRNN.load_state_dict(torch.load("/gruntdata0/xinzhe.lxz/weather4cast-2023/weights/pretrained/predRNN_pretrained.pt"))
         self.MoE = MoE(num_classes=32)
 
     def forward(self, x, return_inter=False):
@@ -129,7 +123,6 @@ class WeatherFusionNet_stage2(BaseLitModule):
 
         optimizer = torch.optim.AdamW(params, lr=float(self.config["lr"]),
                                       weight_decay=float(self.config["weight_decay"]))
-        # optimizer = torch.optim.Adam(self.parameters(), lr=float(self.config["train"]["lr"]))
         return optimizer
     
 
@@ -137,12 +130,12 @@ class WeatherFusionNet_stage3(BaseLitModule):
     def __init__(self, UNet_params, config):
         super().__init__(UNet_params, config)
         self.phydnet = PhyDNetWrapper("models/configurations/phydnet.yaml",
-                                      ckpt_path="/data-disk0/xinzhe.lxz/w4cNew2023/weights/pretrained/sat-phydnet.ckpt")
+                                      ckpt_path="/path/to/your/pretrained/weights/sat-phydnet.ckpt")
         self.sat2rad = UNetWrapper(input_channels=11, output_channels=1)
         self.sat2rad.load_state_dict(
-            torch.load("/data-disk0/xinzhe.lxz/w4cNew2023/weights/pretrained/sat2rad-unet.pt"))
+            torch.load("/path/to/your/pretrained/weights/sat2rad-unet.pt"))
         self.unet_ptr = UNetWrapper(input_channels=11 * (4 + 10) + 4, output_channels=32)
-        self.unet_ptr.load_state_dict(torch.load("/data-disk0/xinzhe.lxz/w4cNew2023/weights/pretrained/unet.pt"))
+        self.unet_ptr.load_state_dict(torch.load("/path/to/your/pretrained/weights/unet.pt"))
         self.unet = UNetWrapper(input_channels=11 * (4 + 10) + 4, output_channels=32)
         self.upscale = torch.nn.Upsample(scale_factor=6, mode='bilinear', align_corners=True)
         self.predRNN = PredRNN(in_channels=1, num_hidden=1, width=252, filter_size=3)
