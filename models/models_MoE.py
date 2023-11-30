@@ -74,6 +74,40 @@ class UNetCropUpscale(BaseLitModule):
         return x
 
 
+class WeatherFusionNet_stage1(BaseLitModule):
+    def __init__(self, UNet_params, config):
+        super().__init__(UNet_params, config)
+        self.phydnet = PhyDNetWrapper("models/configurations/phydnet.yaml", ckpt_path="/path/to/your/pretrained/weights/sat-phydnet.ckpt")
+
+        self.sat2rad = UNetWrapper(input_channels=11, output_channels=1)
+        self.sat2rad.load_state_dict(torch.load("/path/to/your/pretrained/weights/sat2rad-unet.pt"))
+
+        self.unet = UNetWrapper(input_channels=11 * (4 + 10) + 4, output_channels=32)
+        self.upscale = torch.nn.Upsample(scale_factor=6, mode='bilinear', align_corners=True)
+        self.predRNN = PredRNN(in_channels=1, num_hidden=1, width=252, filter_size=3)
+
+    def forward(self, x, return_inter=False):
+        self.sat2rad.eval()
+        with torch.no_grad():
+            sat2rad_out = self.sat2rad(x.swapaxes(1, 2)).reshape(x.shape[0], 4, x.shape[-2], x.shape[-1])
+
+        self.phydnet.eval()
+        with torch.no_grad():
+            phydnet_out = self.phydnet(x.swapaxes(1, 2)).flatten(1, 2)
+
+        x = torch.concat([x.flatten(1, 2), phydnet_out, sat2rad_out], dim=1)
+
+        x, _ = self.unet(x)
+        x = x[crop_slice()]
+        x = self.upscale(x[:, 0]).unsqueeze(1)
+
+        x = self.predRNN(x)
+
+        if return_inter:
+            return sat2rad_out, phydnet_out, x
+        return x
+        
+
 class WeatherFusionNet_stage2(BaseLitModule):
     def __init__(self, UNet_params, config):
         super().__init__(UNet_params, config)
