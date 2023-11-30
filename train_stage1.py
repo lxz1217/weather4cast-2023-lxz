@@ -161,7 +161,7 @@ def train(params, gpus, mode, checkpoint_path):
     # ------------
     get_cuda_memory_usage(gpus)
     data = DataModule(params['dataset'], params['train'], mode)
-    model = load_model(WeatherFusionNet, params, checkpoint_path)
+    model = load_model(WeatherFusionNet_stage1, params, checkpoint_path)
     # ------------
     # Add your models here
     # ------------
